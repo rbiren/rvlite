@@ -1,0 +1,881 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VIN Lookup — Know Your Airstream</title>
+<meta name="description" content="Decode a VIN, verify it is an Airstream against NHTSA, and check US and Canadian recall records side by side.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400&display=swap" rel="stylesheet">
+<style>
+  /* ============================================================
+     Style tokens mirrored from airstream.com live stylesheet
+     (entry.CDa617Cd.css) — exact values from their design system.
+     ============================================================ */
+  :root {
+    /* Product / brand */
+    --as-ocean: #033260;            /* --color-product-ocean   */
+    --as-deep-ocean: #1a2d3e;       /* --color-product-deep-ocean */
+    --as-horizon: #006ba6;          /* --color-flexible-horizon-wcag (links/actions) */
+    --as-evergreen: #3b5f33;        /* --color-flexible-evergreen (success) */
+    --as-magma: #bf2626;            /* --color-error-magma */
+    /* Neutrals */
+    --as-night: #000;
+    --as-graphite: #333;            /* --color-neutral-graphite */
+    --as-iron: #746a63;             /* --color-neutral-iron */
+    --as-aluminium: #d9d5d2;        /* --color-neutral-aluminium */
+    --as-cloud: #efedeb;            /* --color-neutral-cloud (hover bg) */
+    --as-stratus: #f3f1ef;          /* --color-neutral-stratus-cloud */
+    --as-cirrus: #fbfaf8;           /* --color-neutral-cirrus-cloud */
+    --as-white: #fff;
+    /* Lifestyle */
+    --as-rivet: #efede5;            /* --color-lifestyle-rivet (cream) */
+    --as-sand: #d7d2bf;
+    --as-silver: #a9a9a9;
+    /* Type */
+    --font-sans: "Helvetica Neue LT Pro", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    --font-display: "Jost", "Century Gothic", "Futura", var(--font-sans);
+    --tracking-widest: 0.18em;
+    --radius-pill: 999px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    font-family: var(--font-sans);
+    color: var(--as-graphite);
+    background: var(--as-cirrus);
+    line-height: 1.55;
+    font-size: 16px;
+  }
+  a { color: var(--as-horizon); }
+  a:hover { text-decoration-thickness: 2px; }
+  :focus-visible { outline: 3px solid var(--as-horizon); outline-offset: 2px; border-radius: 2px; }
+
+  /* ---------- Top bar ---------- */
+  .topbar {
+    background: var(--as-white);
+    border-bottom: 1px solid var(--as-aluminium);
+    padding: 14px 24px;
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  }
+  .wordmark {
+    font-weight: 700; letter-spacing: 0.28em; text-transform: uppercase;
+    font-size: 15px; color: var(--as-night); text-decoration: none;
+  }
+  .wordmark .wordmark-tag {
+    display: inline-block; margin-left: 12px; padding: 3px 10px;
+    font-size: 10px; letter-spacing: var(--tracking-widest); font-weight: 700;
+    color: var(--as-white); background: var(--as-ocean); border-radius: var(--radius-pill);
+    vertical-align: 2px;
+  }
+  .topbar a.toplink {
+    font-size: 11px; letter-spacing: var(--tracking-widest); text-transform: uppercase;
+    font-weight: 700; color: var(--as-graphite); text-decoration: none;
+  }
+  .topbar a.toplink:hover { color: var(--as-horizon); }
+
+  /* ---------- Hero ---------- */
+  .hero {
+    background: var(--as-ocean);
+    color: var(--as-white);
+    padding: 64px 24px 88px;
+    text-align: center;
+  }
+  .hero h1 {
+    font-family: var(--font-display);
+    font-weight: 300;
+    font-size: clamp(34px, 6vw, 56px);
+    line-height: 1.08;
+    letter-spacing: 0.01em;
+    max-width: 21ch;
+    margin: 0 auto 14px;
+  }
+  .hero p {
+    color: #cfe0ef;
+    max-width: 62ch; margin: 0 auto;
+    font-size: 15px;
+  }
+
+  /* ---------- Search card ---------- */
+  .searchcard {
+    max-width: 760px;
+    margin: -56px auto 0;
+    background: var(--as-white);
+    border: 1px solid var(--as-aluminium);
+    border-radius: 4px;
+    box-shadow: 0 12px 32px rgba(3, 50, 96, 0.14);
+    padding: 28px 28px 22px;
+    position: relative; z-index: 2;
+  }
+  .searchcard label {
+    display: block;
+    font-size: 11px; font-weight: 700; letter-spacing: var(--tracking-widest);
+    text-transform: uppercase; color: var(--as-graphite);
+    margin-bottom: 10px;
+  }
+  .search-row { display: flex; gap: 12px; }
+  #vin {
+    flex: 1; min-width: 0;
+    font-family: var(--font-sans);
+    font-size: 19px; letter-spacing: 0.22em;
+    text-transform: uppercase;
+    padding: 13px 16px;
+    border: 1px solid var(--as-iron);
+    border-radius: 3px;
+    color: var(--as-night);
+    background: var(--as-white);
+  }
+  #vin::placeholder { color: var(--as-silver); letter-spacing: 0.14em; text-transform: none; }
+  #vin:focus { border-color: var(--as-ocean); outline: none; box-shadow: 0 0 0 3px rgba(0, 107, 166, 0.25); }
+  #vin[aria-invalid="true"] { border-color: var(--as-magma); box-shadow: 0 0 0 3px rgba(191, 38, 38, 0.18); }
+  .pill-btn {
+    appearance: none; border: 0; cursor: pointer;
+    border-radius: var(--radius-pill);
+    font-family: var(--font-sans);
+    font-size: 12px; font-weight: 700;
+    letter-spacing: var(--tracking-widest); text-transform: uppercase;
+    padding: 14px 30px;
+    background: var(--as-ocean); color: var(--as-white);
+    transition: background-color 120ms ease;
+    white-space: nowrap;
+  }
+  .pill-btn:hover { background: var(--as-deep-ocean); }
+  .pill-btn:disabled { background: var(--as-cloud); color: var(--as-silver); cursor: not-allowed; }
+  .field-help { margin-top: 10px; font-size: 12.5px; color: var(--as-iron); }
+  .field-error { margin-top: 10px; font-size: 13px; color: var(--as-magma); font-weight: 700; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; align-items: center; }
+  .chips .chips-label { font-size: 11.5px; color: var(--as-iron); margin-right: 2px; }
+  .chip {
+    border: 1px solid var(--as-aluminium); background: var(--as-stratus);
+    color: var(--as-graphite); border-radius: var(--radius-pill);
+    font-size: 12px; padding: 6px 14px; cursor: pointer;
+    font-family: var(--font-sans); letter-spacing: 0.04em;
+  }
+  .chip:hover { background: var(--as-cloud); border-color: var(--as-iron); }
+
+  /* ---------- Status region ---------- */
+  .status { max-width: 760px; margin: 22px auto 0; padding: 0 24px; }
+  .callout {
+    border: 1px solid var(--as-aluminium); border-left: 6px solid var(--as-iron);
+    background: var(--as-white); border-radius: 4px;
+    padding: 18px 22px; font-size: 14.5px;
+  }
+  .callout h2 { font-size: 15px; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 6px; color: var(--as-night); }
+  .callout.reject { border-left-color: var(--as-magma); }
+  .callout.reject h2 { color: var(--as-magma); }
+  .callout.error { border-left-color: var(--as-magma); background: #fdf7f6; }
+  .callout .decoded { margin-top: 8px; color: var(--as-iron); font-size: 13.5px; }
+  .callout .decoded b { color: var(--as-graphite); }
+  .callout .actions { margin-top: 12px; }
+  .linklike {
+    background: none; border: 0; padding: 0; cursor: pointer;
+    color: var(--as-horizon); font: inherit; font-size: 13.5px; text-decoration: underline;
+  }
+
+  /* ---------- Results ---------- */
+  .results { max-width: 1060px; margin: 34px auto 0; padding: 0 24px 8px; }
+  .identity {
+    background: var(--as-rivet);
+    border: 1px solid var(--as-sand);
+    border-radius: 4px;
+    padding: 26px 28px;
+  }
+  .identity .identity-kicker {
+    font-size: 11px; font-weight: 700; letter-spacing: var(--tracking-widest);
+    text-transform: uppercase; color: var(--as-iron); margin-bottom: 8px;
+  }
+  .identity h2 {
+    font-family: var(--font-display); font-weight: 300;
+    font-size: clamp(26px, 4vw, 38px); color: var(--as-ocean); line-height: 1.1;
+  }
+  .identity h2 .identity-vin {
+    display: block; font-family: var(--font-sans); font-weight: 400;
+    font-size: 13px; letter-spacing: 0.22em; color: var(--as-iron); margin-top: 8px;
+  }
+  .identity-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 14px 22px; margin-top: 20px;
+  }
+  .identity-grid .kv .k {
+    font-size: 10.5px; font-weight: 700; letter-spacing: var(--tracking-widest);
+    text-transform: uppercase; color: var(--as-iron); display: block;
+  }
+  .identity-grid .kv .v { font-size: 14.5px; color: var(--as-graphite); overflow-wrap: anywhere; }
+  .badges { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 7px;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+    padding: 5px 12px; border-radius: var(--radius-pill);
+    background: var(--as-white); border: 1px solid var(--as-aluminium); color: var(--as-graphite);
+  }
+  .badge.ok { color: var(--as-evergreen); border-color: var(--as-evergreen); }
+  .badge.warn { color: var(--as-magma); border-color: var(--as-magma); }
+
+  .sources {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin-top: 22px;
+  }
+  @media (max-width: 860px) { .sources { grid-template-columns: 1fr; } }
+  .panel {
+    background: var(--as-white); border: 1px solid var(--as-aluminium);
+    border-radius: 4px; padding: 20px 22px;
+  }
+  .panel-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .panel-head h3 {
+    font-size: 14px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--as-night);
+  }
+  .panel-head h3 .flag {
+    display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: var(--tracking-widest);
+    color: var(--as-white); background: var(--as-ocean);
+    border-radius: 2px; padding: 2px 7px; margin-right: 9px; vertical-align: 2px;
+  }
+  .panel-sub { font-size: 12px; color: var(--as-iron); margin-top: 3px; }
+  .panel-note { font-size: 12px; color: var(--as-iron); margin-top: 12px; }
+  .panel-link { font-size: 12px; margin-top: 12px; display: inline-block; }
+  .count-pill {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+    border-radius: var(--radius-pill); padding: 4px 12px;
+    background: var(--as-stratus); color: var(--as-graphite); border: 1px solid var(--as-aluminium);
+  }
+  .count-pill.zero { color: var(--as-evergreen); border-color: var(--as-evergreen); }
+  .panel-state { margin-top: 16px; font-size: 14px; color: var(--as-iron); }
+  .panel-state.error { color: var(--as-magma); }
+  .spinner {
+    display: inline-block; width: 14px; height: 14px; vertical-align: -2px; margin-right: 8px;
+    border: 2px solid var(--as-aluminium); border-top-color: var(--as-ocean);
+    border-radius: 50%; animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 2.4s; } }
+  .rec-list { list-style: none; margin-top: 14px; }
+  .rec { border-top: 1px solid var(--as-aluminium); padding: 14px 0 14px; }
+  .rec:first-child { border-top: 0; }
+  .rec-top { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: baseline; }
+  .rec-id { font-weight: 700; letter-spacing: 0.06em; color: var(--as-ocean); font-size: 13.5px; }
+  .rec-date { font-size: 12.5px; color: var(--as-iron); }
+  .rec-model {
+    font-size: 10.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--as-graphite); background: var(--as-stratus);
+    border: 1px solid var(--as-aluminium); border-radius: var(--radius-pill); padding: 2px 9px;
+  }
+  .rec-sys { font-size: 12px; color: var(--as-iron); margin-top: 4px; }
+  .rec-desc { font-size: 13.5px; margin-top: 6px; color: var(--as-graphite); }
+
+  /* ---------- How it works / footer ---------- */
+  .how {
+    max-width: 1060px; margin: 44px auto 0; padding: 0 24px 40px;
+  }
+  .how .how-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; }
+  @media (max-width: 860px) { .how .how-grid { grid-template-columns: 1fr; } }
+  .how-card { border-top: 2px solid var(--as-ocean); padding-top: 14px; }
+  .how-card h3 { font-size: 12px; letter-spacing: var(--tracking-widest); text-transform: uppercase; color: var(--as-night); margin-bottom: 8px; }
+  .how-card p { font-size: 13px; color: var(--as-iron); }
+  footer.site {
+    background: var(--as-night); color: #bdb8b3;
+    padding: 26px 24px; font-size: 12px; line-height: 1.7;
+  }
+  footer.site .footwrap { max-width: 1060px; margin: 0 auto; }
+  footer.site a { color: #e8e4df; }
+  @media (max-width: 640px) {
+    .search-row { flex-direction: column; }
+    .pill-btn { width: 100%; }
+    .hero { padding: 44px 18px 80px; }
+    .searchcard { margin-left: 16px; margin-right: 16px; padding: 22px 18px 18px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <a class="wordmark" href="#" aria-label="Airstream VIN Lookup home">Airstream<span class="wordmark-tag">VIN Lookup</span></a>
+  <a class="toplink" href="https://www.airstream.com/" target="_blank" rel="noopener noreferrer">airstream.com ↗</a>
+</header>
+
+<main>
+  <section class="hero">
+    <h1>Know Your Airstream.</h1>
+    <p>Enter the 17-character VIN. We verify the vehicle against the NHTSA database — only genuine Airstream vehicles are accepted — then check recall records in the United States and Canada.</p>
+  </section>
+
+  <form class="searchcard" id="lookup-form" novalidate>
+    <label for="vin">Vehicle Identification Number</label>
+    <div class="search-row">
+      <input id="vin" name="vin" type="text" inputmode="latin"
+             autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="17"
+             placeholder="e.g. 1STGLDEW7DJ504766" aria-describedby="vin-help">
+      <button class="pill-btn" type="submit" id="submit-btn">Look Up</button>
+    </div>
+    <p class="field-help" id="vin-help">17 characters · letters and numbers only · no I, O, or Q. Found on the public side of the A-frame tongue or the federal certification label.</p>
+    <p class="field-error" id="vin-error" hidden></p>
+    <div class="chips">
+      <span class="chips-label">Try:</span>
+      <button type="button" class="chip" data-sample="airstream">A sample Airstream VIN</button>
+      <button type="button" class="chip" data-sample="other">A non-Airstream VIN</button>
+    </div>
+  </form>
+
+  <div class="status" id="status" role="status" aria-live="polite"></div>
+
+  <section class="results" id="results" hidden>
+    <article class="identity" id="identity"></article>
+    <div class="sources">
+      <article class="panel" id="panel-nhtsa">
+        <div class="panel-head">
+          <div>
+            <h3><span class="flag">USA</span>NHTSA Recall Records</h3>
+            <p class="panel-sub">National Highway Traffic Safety Administration · recalls matched on make, model &amp; year</p>
+          </div>
+          <span class="count-pill" id="nhtsa-count" hidden></span>
+        </div>
+        <div class="panel-state" id="nhtsa-state"></div>
+        <ul class="rec-list" id="nhtsa-list"></ul>
+        <p class="panel-note" id="nhtsa-note" hidden></p>
+        <a class="panel-link" id="nhtsa-link" href="https://www.nhtsa.gov/recalls" target="_blank" rel="noopener noreferrer">Browse NHTSA recalls ↗</a>
+      </article>
+      <article class="panel" id="panel-tc">
+        <div class="panel-head">
+          <div>
+            <h3><span class="flag">Canada</span>Transport Canada Recalls</h3>
+            <p class="panel-sub">Vehicle Recall Database · all Airstream recalls for the model year</p>
+          </div>
+          <span class="count-pill" id="tc-count" hidden></span>
+        </div>
+        <div class="panel-state" id="tc-state"></div>
+        <ul class="rec-list" id="tc-list"></ul>
+        <p class="panel-note" id="tc-note" hidden></p>
+        <a class="panel-link" id="tc-link" href="https://wwwapps.tc.gc.ca/Saf-Sec-Sur/7/VRDB-BDRV/search-recherche/menu.aspx?lang=eng" target="_blank" rel="noopener noreferrer">Search Transport Canada's database ↗</a>
+      </article>
+    </div>
+  </section>
+
+  <section class="how" aria-label="How the lookup works">
+    <div class="how-grid">
+      <div class="how-card">
+        <h3>1 · Verified against NHTSA</h3>
+        <p>The VIN is decoded with NHTSA's vPIC database. If NHTSA does not identify the manufacturer as Airstream, the lookup stops — nothing else is accepted.</p>
+      </div>
+      <div class="how-card">
+        <h3>2 · Checked in the US</h3>
+        <p>Recall records are pulled from NHTSA's recall database by make, model and model year, with a sweep across known Airstream model names when needed.</p>
+      </div>
+      <div class="how-card">
+        <h3>3 · Checked in Canada</h3>
+        <p>The Canadian equivalent — Transport Canada's Vehicle Recall Database — is queried for the same make and year, and both countries' results are shown in one common format.</p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="site">
+  <div class="footwrap">
+    <p>Data: NHTSA vPIC and NHTSA recall databases (public domain). Contains information licensed under the Open Government Licence – Canada (Transport Canada Vehicle Recall Database).</p>
+    <p>Independent tool — not affiliated with or endorsed by Airstream, Inc., NHTSA, or Transport Canada. Recall data excludes items Transport Canada classifies as inconsequential or non-safety-related. Decisions based on this page should be confirmed with the official sources.</p>
+  </div>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ================= Configuration ================= */
+
+  var NHTSA_DECODE = "https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValues/";
+  var NHTSA_RECALLS = "https://api.nhtsa.gov/recalls/recallsByVehicle";
+  var TC_BASE = "https://data.tc.gc.ca/v1.3/api/eng/vehicle-recall-database";
+
+  /* Transport Canada's API sends no CORS header, so a browser cannot read it
+     directly. The page tries each route in order until one succeeds:
+       1. direct (in case CORS is enabled in the future),
+       2. the public Corsfix relay,
+       3. the r.jina.ai text relay (JSON is extracted from the response).
+     Replace or reorder these, or point them at your own relay, as needed. */
+  var TC_RELAYS = [
+    function (url) { return { url: url, parse: "json" }; },
+    function (url) { return { url: "https://proxy.corsfix.com/?" + url, parse: "json" }; },
+    function (url) { return { url: "https://r.jina.ai/" + url, parse: "jina" }; }
+  ];
+
+  /* NHTSA's recall database indexes Airstream under its own model names, which
+     do not always match the vPIC decode. If the decoded model has no matches,
+     these well-known Airstream lines are swept as a fallback. */
+  var AIRSTREAM_MODEL_FALLBACKS = [
+    "INTERNATIONAL", "CLASSIC", "SAFARI", "EXCELLA", "SOVEREIGN", "OVERLANDER",
+    "TRADEWIND", "BAMBI", "CARAVEL", "BASECAMP", "FLYING CLOUD", "LAND YACHT"
+  ];
+
+  var SAMPLES = {
+    airstream: "1STGLDEW7DJ504766", /* decodes as AIRSTREAM / Limited / 2013 */
+    other: "1FTFW1E85KEC12345"      /* decodes as a Ford, used to demo the gate */
+  };
+
+  var REQUEST_TIMEOUT_MS = 25000;
+  var TC_SUMMARY_LIMIT = 6; /* detail lookups per lookup; keeps request count polite */
+
+  /* ================= Small DOM helpers ================= */
+
+  function $(id) { return document.getElementById(id); }
+
+  function el(tag, className, text) {
+    var node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined && text !== null) node.textContent = text;
+    return node;
+  }
+
+  function clear(node) { while (node.firstChild) node.removeChild(node.firstChild); }
+
+  /* ================= VIN handling ================= */
+
+  function normalizeVin(raw) {
+    return String(raw || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  }
+
+  function localVinProblems(vin) {
+    if (!vin) return "Enter a VIN to look up.";
+    if (vin.length !== 17) return "A VIN is exactly 17 characters — this one is " + vin.length + ".";
+    if (/[IOQ]/.test(vin)) return "VINs never contain the letters I, O, or Q. Please double-check the characters.";
+    return null;
+  }
+
+  /* Standard North-American check digit (position 9). Informational only —
+     the acceptance gate is NHTSA's decoded make. */
+  function checkDigit(vin) {
+    var translit = { A:1, B:2, C:3, D:4, E:5, F:6, G:7, H:8, J:1, K:2, L:3, M:4,
+                     N:5, P:7, R:9, S:2, T:3, U:4, V:5, W:6, X:7, Y:8, Z:9 };
+    var weights = [8,7,6,5,4,3,2,10,0,9,8,7,6,5,4,3,2];
+    var sum = 0;
+    for (var i = 0; i < 17; i++) {
+      var ch = vin[i];
+      var value = /[0-9]/.test(ch) ? Number(ch) : (translit[ch] || 0);
+      sum += value * weights[i];
+    }
+    var remainder = sum % 11;
+    return remainder === 10 ? "X" : String(remainder);
+  }
+
+  /* ================= Networking ================= */
+
+  function fetchWithTimeout(url) {
+    var controller = new AbortController();
+    var timer = setTimeout(function () { controller.abort(); }, REQUEST_TIMEOUT_MS);
+    return fetch(url, { signal: controller.signal }).finally(function () { clearTimeout(timer); });
+  }
+
+  function parseJina(text) {
+    var brace = text.indexOf("{");
+    if (brace < 0) throw new Error("relay returned no JSON body");
+    return JSON.parse(text.slice(brace));
+  }
+
+  /* Try the direct request, then each relay in order. */
+  function fetchJsonRouted(url) {
+    var attempts = TC_RELAYS.map(function (build) { return build(url); });
+    var index = 0;
+    function attempt() {
+      if (index >= attempts.length) throw new Error("all routes failed");
+      var route = attempts[index++];
+      return fetchWithTimeout(route.url).then(function (res) {
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        if (route.parse === "jina") return res.text().then(parseJina);
+        return res.json();
+      }).catch(function (err) {
+        if (index < attempts.length) return attempt();
+        throw err;
+      });
+    }
+    return attempt();
+  }
+
+  /* ================= Data sources ================= */
+
+  function decodeVin(vin) {
+    return fetchWithTimeout(NHTSA_DECODE + encodeURIComponent(vin) + "?format=json")
+      .then(function (res) { if (!res.ok) throw new Error("NHTSA vPIC HTTP " + res.status); return res.json(); })
+      .then(function (data) {
+        var r = data && data.Results && data.Results[0];
+        if (!r) throw new Error("NHTSA returned no decode data for this VIN.");
+        return r;
+      });
+  }
+
+  function nhtsaRecallsForModel(make, model, year) {
+    var url = NHTSA_RECALLS + "?make=" + encodeURIComponent(make) +
+              "&model=" + encodeURIComponent(model) + "&modelYear=" + encodeURIComponent(year);
+    return fetchWithTimeout(url).then(function (res) {
+      return res.json().catch(function () {
+        throw new Error("NHTSA recalls HTTP " + res.status);
+      });
+    }).then(function (data) {
+      return {
+        model: model,
+        count: Number(data && data.Count) || 0,
+        rows: (data && data.results || []).map(function (r) {
+          return {
+            source: "NHTSA",
+            id: r.NHTSACampaignNumber || "",
+            date: r.ReportReceivedDate || "",
+            model: r.Model || model,
+            system: r.Component || "",
+            meta: "",
+            description: r.Summary || ""
+          };
+        }).filter(function (r) { return r.id; })
+      };
+    });
+  }
+
+  function nhtsaRecalls(make, model, year) {
+    var tried = [];
+    var primary = String(model || "").trim().toUpperCase();
+    var queue = [];
+    if (primary) queue.push(primary);
+    AIRSTREAM_MODEL_FALLBACKS.forEach(function (m) { if (m !== primary) queue.push(m); });
+
+    function next() {
+      if (!queue.length) return Promise.resolve({ rows: [], modelsTried: tried });
+      var model = queue.shift();
+      tried.push(model);
+      return nhtsaRecallsForModel(make, model, year).then(function (batch) {
+        if (batch.rows.length) return { rows: batch.rows, modelsTried: tried, primaryModel: batch.model };
+        return next();
+      });
+    }
+    return next();
+  }
+
+  /* The TC envelope returns records as ordered Name/Value pairs. Records are
+     delimited by the first field, whichever way the service groups them. */
+  function tcParseRecords(data, firstFieldName) {
+    var records = [];
+    var current = null;
+    (data && data.ResultSet || []).forEach(function (block) {
+      (Array.isArray(block) ? block : [block]).forEach(function (pair) {
+        if (!pair || typeof pair.Name !== "string") return;
+        var name = pair.Name.trim();
+        if (name === firstFieldName) {
+          current = {};
+          records.push(current);
+        }
+        if (!current) { current = {}; records.push(current); }
+        current[name] = pair.Value ? String(pair.Value.Literal) : "";
+      });
+    });
+    return records;
+  }
+
+  function tcRecallList(year) {
+    var path = year
+      ? "/recall/make-name/airstream/year-range/" + year + "-" + year
+      : "/recall/make-name/airstream";
+    return fetchJsonRouted(TC_BASE + path + "?format=json").then(function (data) {
+      var records = tcParseRecords(data, "Recall number");
+      return records.map(function (r) {
+        return {
+          source: "Transport Canada",
+          id: r["Recall number"] || "",
+          date: r["Recall date"] ? r["Recall date"].split(" ")[0] : "",
+          model: r["Model name"] || "",
+          system: "",
+          meta: "",
+          year: r["Year"] || year || "",
+          description: ""
+        };
+      }).filter(function (r) { return r.id; });
+    });
+  }
+
+  function tcRecallDetail(number) {
+    var url = TC_BASE + "/recall-summary/recall-number/" + encodeURIComponent(number) + "?format=json";
+    return fetchJsonRouted(url).then(function (data) {
+      var records = tcParseRecords(data, "RECALL_NUMBER_NUM");
+      return records[0] || {};
+    }).catch(function () { return {}; }); /* detail is optional */
+  }
+
+  function tcRecalls(year) {
+    return tcRecallList(year).then(function (rows) {
+      var unique = [];
+      var seen = {};
+      rows.forEach(function (r) { if (!seen[r.id]) { seen[r.id] = true; unique.push(r); } });
+      var toDetail = unique.slice(0, TC_SUMMARY_LIMIT);
+      return Promise.all(toDetail.map(function (r) {
+        return tcRecallDetail(r.id).then(function (d) {
+          r.system = [d.CATEGORY_ETXT, d.SYSTEM_TYPE_ETXT].filter(Boolean).join(" · ");
+          if (d.UNIT_AFFECTED_NBR) r.meta = d.UNIT_AFFECTED_NBR + " units affected";
+          r.description = d.COMMENT_ETXT || "";
+          return r;
+        });
+      })).then(function () {
+        return {
+          rows: unique,
+          detailed: Math.min(unique.length, toDetail.length),
+          modelsTried: null
+        };
+      });
+    });
+  }
+
+  /* ================= Rendering ================= */
+
+  var form = $("lookup-form");
+  var input = $("vin");
+  var submitBtn = $("submit-btn");
+  var vinError = $("vin-error");
+  var statusBox = $("status");
+  var results = $("results");
+  var identity = $("identity");
+  var busy = false;
+
+  function setStatus(nodes) {
+    clear(statusBox);
+    if (nodes) nodes.forEach(function (n) { statusBox.appendChild(n); });
+  }
+
+  function setPanel(panelId, state) {
+    var stateEl = $(panelId + "-state");
+    var listEl = $(panelId + "-list");
+    var noteEl = $(panelId + "-note");
+    var countEl = $(panelId + "-count");
+    clear(stateEl); clear(listEl); clear(noteEl); clear(countEl);
+    noteEl.hidden = true; countEl.hidden = true;
+
+    if (state.count !== undefined) {
+      countEl.textContent = state.count + (state.count === 1 ? " record" : " records");
+      countEl.classList.toggle("zero", state.count === 0);
+      countEl.hidden = false;
+    }
+    if (state.note) { noteEl.textContent = state.note; noteEl.hidden = false; }
+
+    if (state.kind === "loading") {
+      stateEl.appendChild(el("span", "spinner", ""));
+      stateEl.appendChild(document.createTextNode(state.message || "Checking…"));
+    } else if (state.kind === "idle") {
+      stateEl.textContent = state.message || "";
+    } else if (state.kind === "error") {
+      stateEl.textContent = state.message;
+      stateEl.classList.add("error");
+    } else if (state.kind === "empty") {
+      stateEl.textContent = state.message;
+    } else if (state.kind === "ok") {
+      state.rows.forEach(function (row) {
+        var li = el("li", "rec");
+        var top = el("div", "rec-top");
+        top.appendChild(el("span", "rec-id", row.id));
+        if (row.date) top.appendChild(el("span", "rec-date", row.date));
+        if (row.model) top.appendChild(el("span", "rec-model", row.model));
+        li.appendChild(top);
+        if (row.system || row.meta) {
+          li.appendChild(el("div", "rec-sys", [row.system, row.meta].filter(Boolean).join(" — ")));
+        }
+        if (row.description) {
+          var desc = String(row.description)
+            .replace(/[\u0000-\u001F\u007F-\u009F]/g, " ") /* API text sometimes contains control glyphs */
+            .replace(/\s+/g, " ").trim();
+          if (desc.length > 320) desc = desc.slice(0, 317) + "…";
+          li.appendChild(el("p", "rec-desc", desc));
+        }
+        listEl.appendChild(li);
+      });
+    }
+  }
+
+  function renderIdentity(d, vin) {
+    clear(identity);
+    var kicker = el("p", "identity-kicker", "Verified Airstream · decoded by NHTSA vPIC");
+    var heading = el("h2", null, null);
+    heading.appendChild(document.createTextNode(
+      [d.ModelYear, d.Model].filter(Boolean).join(" ") || "Airstream"
+    ));
+    var vinLine = el("span", "identity-vin", vin);
+    heading.appendChild(vinLine);
+
+    identity.appendChild(kicker);
+    identity.appendChild(heading);
+
+    var grid = el("div", "identity-grid");
+    [
+      ["Make", d.Make], ["Model Year", d.ModelYear], ["Vehicle Type", d.VehicleType],
+      ["Body Class", d.BodyClass], ["Series", d.Series], ["Trim", d.Trim],
+      ["Manufacturer", d.Manufacturer],
+      ["Built At", [d.PlantCity, d.PlantState].filter(Boolean).join(", ")],
+      ["Plant Country", d.PlantCountry]
+    ].forEach(function (kv) {
+      if (!kv[1]) return;
+      var kvBox = el("div", "kv");
+      kvBox.appendChild(el("span", "k", kv[0]));
+      kvBox.appendChild(el("span", "v", kv[1]));
+      grid.appendChild(kvBox);
+    });
+    identity.appendChild(grid);
+
+    var badges = el("div", "badges");
+    var digitOk = checkDigit(vin) === vin[8];
+    var b = el("span", "badge " + (digitOk ? "ok" : "warn"),
+               (digitOk ? "✓ Check digit valid" : "⚠ Check digit mismatch — verify the VIN"));
+    badges.appendChild(b);
+    if (d.VehicleType) badges.appendChild(el("span", "badge", d.VehicleType));
+    identity.appendChild(badges);
+  }
+
+  function renderRejected(decoded, vin) {
+    results.hidden = true;
+    var make = decoded && decoded.Make ? decoded.Make : "an unidentified manufacturer";
+    var what = [decoded && decoded.ModelYear, decoded && decoded.Make, decoded && decoded.Model]
+      .filter(Boolean).join(" ") || "no vehicle";
+    var card = el("div", "callout reject");
+    card.appendChild(el("h2", null, "Not an Airstream VIN — lookup stopped"));
+    card.appendChild(el("p", null, "NHTSA identifies this VIN as " + make + ". Only vehicles NHTSA decodes as AIRSTREAM are accepted, so no recall check was performed."));
+    var decodedLine = el("p", "decoded");
+    decodedLine.appendChild(document.createTextNode("Decoded as: "));
+    var b = el("b", null, what || "unknown");
+    decodedLine.appendChild(b);
+    decodedLine.appendChild(document.createTextNode(" · VIN " + vin));
+    card.appendChild(decodedLine);
+    var actions = el("div", "actions");
+    var retry = el("button", "linklike", "Check another VIN");
+    retry.type = "button";
+    retry.addEventListener("click", function () { resetForm(true); });
+    actions.appendChild(retry);
+    card.appendChild(actions);
+    setStatus([card]);
+  }
+
+  function renderError(message) {
+    results.hidden = true;
+    var card = el("div", "callout error");
+    card.appendChild(el("h2", null, "Lookup could not complete"));
+    card.appendChild(el("p", null, message + " Please try again in a moment."));
+    var actions = el("div", "actions");
+    var retry = el("button", "linklike", "Retry");
+    retry.type = "button";
+    retry.addEventListener("click", function () { form.requestSubmit(); });
+    actions.appendChild(retry);
+    card.appendChild(actions);
+    setStatus([card]);
+  }
+
+  /* ================= Orchestration ================= */
+
+  function resetForm(focusInput) {
+    results.hidden = true;
+    setStatus(null);
+    vinError.hidden = true;
+    input.setAttribute("aria-invalid", "false");
+    setPanel("nhtsa", { kind: "idle", message: "" });
+    setPanel("tc", { kind: "idle", message: "" });
+    if (focusInput) input.focus();
+  }
+
+  function setBusy(on) {
+    busy = on;
+    submitBtn.disabled = on;
+    submitBtn.textContent = on ? "Checking…" : "Look Up";
+    input.disabled = on;
+  }
+
+  function runRecalls(decoded, vin) {
+    var year = (decoded.ModelYear || "").trim();
+    var make = (decoded.Make || "AIRSTREAM").trim().toUpperCase();
+
+    /* US panel */
+    setPanel("nhtsa", { kind: "loading", message: "Checking NHTSA recall records for " + year + "…" });
+    nhtsaRecalls(make, decoded.Model || "", year).then(function (out) {
+      if (out.rows.length) {
+        setPanel("nhtsa", { kind: "ok", rows: out.rows, count: out.rows.length,
+          note: out.primaryModel && out.primaryModel !== String(decoded.Model || "").toUpperCase()
+            ? "Matched NHTSA records under model name “" + out.primaryModel + "”. Searched: " + out.modelsTried.join(", ") + "."
+            : "Searched NHTSA for make " + make + ", model " + (decoded.Model || "—") + ", year " + year + "." });
+      } else {
+        setPanel("nhtsa", { kind: "empty", count: 0,
+          message: "No US recall records found for this make/model/year combination.",
+          note: "Searched: " + out.modelsTried.join(", ") + ". NHTSA recall records use manufacturer model names, so a rare trim may still exist — check the link below." });
+      }
+    }).catch(function (err) {
+      setPanel("nhtsa", { kind: "error", message: "NHTSA recall check failed (" + err.message + ")." });
+    });
+
+    /* Canadian panel */
+    setPanel("tc", { kind: "loading", message: "Checking Transport Canada's Vehicle Recall Database…" });
+    tcRecalls(year).then(function (out) {
+      if (out.rows.length) {
+        var note = "All Airstream recalls on file for model year " + year + ".";
+        if (out.detailed < out.rows.length) note += " Details shown for the " + out.detailed + " most recent records.";
+        setPanel("tc", { kind: "ok", rows: out.rows, count: out.rows.length, note: note });
+      } else {
+        setPanel("tc", { kind: "empty", count: 0,
+          message: "No Airstream recalls on file in Canada for model year " + year + ".",
+          note: "Transport Canada's database excludes recalls it classifies as inconsequential or non-safety-related." });
+      }
+    }).catch(function (err) {
+      setPanel("tc", { kind: "error",
+        message: "Transport Canada check failed (" + err.message + "). Transport Canada's API does not send browser (CORS) permissions and is reached via public relays — try again, or use the link below." });
+    });
+  }
+
+  function lookup(rawVin) {
+    if (busy) return;
+    var vin = normalizeVin(rawVin);
+    input.value = vin;
+
+    var problem = localVinProblems(vin);
+    if (problem) {
+      results.hidden = true;
+      setStatus(null);
+      vinError.textContent = problem;
+      vinError.hidden = false;
+      input.setAttribute("aria-invalid", "true");
+      input.focus();
+      return;
+    }
+    vinError.hidden = true;
+    input.setAttribute("aria-invalid", "false");
+
+    setBusy(true);
+    results.hidden = true;
+    setStatus([el("div", "callout", "Decoding " + vin + " against the NHTSA vehicle database…")]);
+
+    decodeVin(vin).then(function (decoded) {
+      var make = String(decoded.Make || "").trim().toUpperCase();
+      if (make !== "AIRSTREAM") {
+        setBusy(false);
+        renderRejected(decoded, vin);
+        return;
+      }
+      renderIdentity(decoded, vin);
+      results.hidden = false;
+      setStatus(null);
+      setBusy(false);
+      results.scrollIntoView({ behavior: "smooth", block: "start" });
+      runRecalls(decoded, vin);
+    }).catch(function (err) {
+      setBusy(false);
+      renderError("The NHTSA decode service did not respond (" + err.message + ").");
+    });
+  }
+
+  /* ================= Events ================= */
+
+  form.addEventListener("submit", function (e) {
+    e.preventDefault();
+    lookup(input.value);
+  });
+
+  input.addEventListener("input", function () {
+    if (!vinError.hidden) { vinError.hidden = true; input.setAttribute("aria-invalid", "false"); }
+  });
+
+  Array.prototype.forEach.call(document.querySelectorAll(".chip"), function (chip) {
+    chip.addEventListener("click", function () {
+      input.value = SAMPLES[chip.getAttribute("data-sample")] || "";
+      input.focus();
+      form.requestSubmit();
+    });
+  });
+
+  setPanel("nhtsa", { kind: "idle", message: "Waiting for a VIN." });
+  setPanel("tc", { kind: "idle", message: "Waiting for a VIN." });
+})();
+</script>
+</body>
+</html>
