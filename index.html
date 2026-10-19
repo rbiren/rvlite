@@ -388,11 +388,14 @@
   /* Transport Canada's API sends no CORS header, so a browser cannot read it
      directly. The page tries each route in order until one succeeds:
        1. direct (in case CORS is enabled in the future),
-       2. the public Corsfix relay,
-       3. the r.jina.ai text relay (JSON is extracted from the response).
-     Replace or reorder these, or point them at your own relay, as needed. */
+       2. the cors.lol relay,
+       3. the Corsfix relay (works for localhost/dev origins),
+       4. the r.jina.ai text relay (JSON is extracted from the response).
+     Public hosted origins (e.g. raw.githack) need routes 2 or 4. Replace or
+     reorder these, or point them at your own relay, as needed. */
   var TC_RELAYS = [
     function (url) { return { url: url, parse: "json" }; },
+    function (url) { return { url: "https://api.cors.lol/?url=" + encodeURIComponent(url), parse: "json" }; },
     function (url) { return { url: "https://proxy.corsfix.com/?" + url, parse: "json" }; },
     function (url) { return { url: "https://r.jina.ai/" + url, parse: "jina" }; }
   ];
