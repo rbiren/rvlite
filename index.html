@@ -194,6 +194,7 @@
     display: block; font-family: var(--font-sans); font-weight: 400;
     font-size: 13px; letter-spacing: 0.22em; color: var(--as-iron); margin-top: 8px;
   }
+  .identity h2:focus { outline: none; }
   .identity-grid {
     display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     gap: 14px 22px; margin-top: 20px;
@@ -303,7 +304,7 @@
     <div class="search-row">
       <input id="vin" name="vin" type="text" inputmode="latin"
              autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="17"
-             placeholder="e.g. 1STGLDEW7DJ504766" aria-describedby="vin-help">
+             placeholder="e.g. 1STGLDEW7DJ504766" aria-describedby="vin-help vin-error" aria-errormessage="vin-error">
       <button class="pill-btn" type="submit" id="submit-btn">Look Up</button>
     </div>
     <p class="field-help" id="vin-help">17 characters · letters and numbers only · no I, O, or Q. Found on the public side of the A-frame tongue or the federal certification label.</p>
@@ -550,6 +551,7 @@
     var records = [];
     var current = null;
     (data && data.ResultSet || []).forEach(function (block) {
+      current = null; /* a block not starting with the delimiter must not leak into the previous record */
       (Array.isArray(block) ? block : [block]).forEach(function (pair) {
         if (!pair || typeof pair.Name !== "string") return;
         var name = pair.Name.trim();
@@ -626,6 +628,7 @@
   var results = $("results");
   var identity = $("identity");
   var busy = false;
+  var lookupGen = 0; /* generation guard: recall responses from an older lookup must never paint */
 
   function setStatus(nodes) {
     clear(statusBox);
@@ -639,6 +642,9 @@
     var countEl = $(panelId + "-count");
     clear(stateEl); clear(listEl); clear(noteEl); clear(countEl);
     noteEl.hidden = true; countEl.hidden = true;
+    stateEl.classList.toggle("error", state.kind === "error");
+    stateEl.setAttribute("aria-live", "polite");
+    $("panel-" + panelId).setAttribute("aria-busy", state.kind === "loading" ? "true" : "false");
 
     if (state.count !== undefined) {
       countEl.textContent = state.count + (state.count === 1 ? " record" : " records");
@@ -654,7 +660,6 @@
       stateEl.textContent = state.message || "";
     } else if (state.kind === "error") {
       stateEl.textContent = state.message;
-      stateEl.classList.add("error");
     } else if (state.kind === "empty") {
       stateEl.textContent = state.message;
     } else if (state.kind === "ok") {
@@ -774,13 +779,14 @@
     input.disabled = on;
   }
 
-  function runRecalls(decoded, vin) {
+  function runRecalls(decoded, vin, gen) {
     var year = (decoded.ModelYear || "").trim();
     var make = (decoded.Make || "AIRSTREAM").trim().toUpperCase();
 
     /* US panel */
     setPanel("nhtsa", { kind: "loading", message: "Checking NHTSA recall records for " + year + "…" });
     nhtsaRecalls(make, decoded.Model || "", year).then(function (out) {
+      if (gen !== lookupGen) return;
       if (out.rows.length) {
         setPanel("nhtsa", { kind: "ok", rows: out.rows, count: out.rows.length,
           note: out.primaryModel && out.primaryModel !== String(decoded.Model || "").toUpperCase()
@@ -792,12 +798,14 @@
           note: "Searched: " + out.modelsTried.join(", ") + ". NHTSA recall records use manufacturer model names, so a rare trim may still exist — check the link below." });
       }
     }).catch(function (err) {
+      if (gen !== lookupGen) return;
       setPanel("nhtsa", { kind: "error", message: "NHTSA recall check failed (" + err.message + ")." });
     });
 
     /* Canadian panel */
     setPanel("tc", { kind: "loading", message: "Checking Transport Canada's Vehicle Recall Database…" });
     tcRecalls(year).then(function (out) {
+      if (gen !== lookupGen) return;
       if (out.rows.length) {
         var note = "All Airstream recalls on file for model year " + year + ".";
         if (out.detailed < out.rows.length) note += " Details shown for the " + out.detailed + " most recent records.";
@@ -808,6 +816,7 @@
           note: "Transport Canada's database excludes recalls it classifies as inconsequential or non-safety-related." });
       }
     }).catch(function (err) {
+      if (gen !== lookupGen) return;
       setPanel("tc", { kind: "error",
         message: "Transport Canada check failed (" + err.message + "). Transport Canada's API does not send browser (CORS) permissions and is reached via public relays — try again, or use the link below." });
     });
@@ -831,6 +840,7 @@
     vinError.hidden = true;
     input.setAttribute("aria-invalid", "false");
 
+    var gen = ++lookupGen;
     setBusy(true);
     results.hidden = true;
     setStatus([el("div", "callout", "Decoding " + vin + " against the NHTSA vehicle database…")]);
@@ -846,8 +856,11 @@
       results.hidden = false;
       setStatus(null);
       setBusy(false);
-      results.scrollIntoView({ behavior: "smooth", block: "start" });
-      runRecalls(decoded, vin);
+      var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      results.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
+      var heading = identity.querySelector("h2");
+      if (heading) { heading.setAttribute("tabindex", "-1"); heading.focus({ preventScroll: true }); }
+      runRecalls(decoded, vin, gen);
     }).catch(function (err) {
       setBusy(false);
       renderError("The NHTSA decode service did not respond (" + err.message + ").");
@@ -867,6 +880,7 @@
 
   Array.prototype.forEach.call(document.querySelectorAll(".chip"), function (chip) {
     chip.addEventListener("click", function () {
+      if (busy) return;
       input.value = SAMPLES[chip.getAttribute("data-sample")] || "";
       input.focus();
       form.requestSubmit();
